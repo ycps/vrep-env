@@ -1,0 +1,10 @@
+## git ignore file for some python stuff
+
+# byte-compiled / optimized / dll files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
