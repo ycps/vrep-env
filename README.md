@@ -28,13 +28,13 @@ pip3 install --upgrade git+https://github.com/ycps/vrep-env.git#egg=vrep_env
 
 ## Creating your own V-REP Gym environments
 
-In order to create your own V-REP Gym environments, simply extend the `VrepEnv` class and fill in the gaps.
-You may use the `ExampleVrepEnv` as a template base or check the fully functional `HopperVrepEnv`(similar to the [MuJoCo](https://github.com/openai/gym/blob/master/gym/envs/mujoco/hopper.py) / [Roboschool](https://github.com/openai/roboschool/blob/master/roboschool/gym_mujoco_walkers.py) Hopper)
+In order to create your own V-REP Gym environments, simply extend the [`VrepEnv`](vrep-env/vrep_env.py) class and fill in the gaps.
+You may use the [`ExampleVrepEnv`](examples/envs/example_vrep_env.py) as a template base or check the fully functional [`HopperVrepEnv`](examples/envs/hopper_vrep_env.py) (similar to the [MuJoCo](https://github.com/openai/gym/blob/master/gym/envs/mujoco/hopper.py) / [Roboschool](https://github.com/openai/roboschool/blob/master/roboschool/gym_mujoco_walkers.py) Hopper)
 
 ## Usage
 
 Before starting your environment, an instance of V-REP should already be running. It uses port 19997 by default, but it can be overriden in class initialization.
-Check the `HopperVrepEnv` for a simple running example.
+Check the [`HopperVrepEnv`](examples/envs/hopper_vrep_env.py) for a simple running example.
 It can be run as:
 ```bash
 python3 hopper_vrep_env.py
