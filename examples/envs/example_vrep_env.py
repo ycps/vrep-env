@@ -3,7 +3,7 @@
 #     all names in this file are just examples
 # Search for '#modify' and replace accordingly
 
-import vrep_env
+from vrep_env import vrep_env
 import vrep # vrep.sim_handle_parent
 
 import os

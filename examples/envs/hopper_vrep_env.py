@@ -1,5 +1,5 @@
 
-import vrep_env
+from vrep_env import vrep_env
 import vrep # vrep.sim_handle_parent
 
 import os
