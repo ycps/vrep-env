@@ -1,15 +1,14 @@
 
 import vrep
+
 import gym
 import time
-
 import numpy as np
 
 class VrepEnv(gym.Env):
 	"""Superclass for V-REP environments.
 	"""
-	
-	def __init__(self,server_addr,server_port,scene_path,):
+	def __init__(self,server_addr,server_port,scene_path):
 		# Parameters
 		self.server_addr = server_addr
 		self.server_port = server_port
@@ -20,6 +19,17 @@ class VrepEnv(gym.Env):
 		self.connected = False
 		self.scene_loaded = (scene_path == None)
 		self.sim_running = False
+		
+		# Remote API function meaningful return codes
+		self.str_simx_return = [
+			'simx_return_ok',
+			'simx_return_novalue_flag',
+			'simx_return_timeout_flag',
+			'simx_return_illegal_opmode_flag',
+			'simx_return_remote_error_flag',
+			'simx_return_split_progress_flag',
+			'simx_return_local_error_flag',
+			'simx_return_initialize_error_flag']
 		
 		self.connect(server_addr,server_port)
 		if not self.scene_loaded:
@@ -36,7 +46,7 @@ class VrepEnv(gym.Env):
 			ret = ret_tuple[0]
 		
 		if (ret != vrep.simx_return_ok) and (ret != tolerance):
-			raise RuntimeError('Remote API return code: (' + str(ret) + ')')
+			raise RuntimeError('Remote API return code: ('+str(ret)+': '+self.str_simx_return[ret.bit_length()]+')')
 		
 		return ret_tuple[1:] if istuple else None
 	
@@ -57,11 +67,11 @@ class VrepEnv(gym.Env):
 			if self.cID != -1:
 				self.connected = True
 				break
-			elif attempts > max_attempts:
-				raise RuntimeError('Unable to connect to V-REP.')
-			else:
+			elif attempts < max_attempts:
 				print('Unable to connect to V-REP at ',server_addr,':',server_port,'. Retrying...')
-				time.sleep(1);
+				time.sleep(1)
+			else:
+				raise RuntimeError('Unable to connect to V-REP.')
 		
 		# Setting up debug signal
 		vrep.simxSetIntegerSignal(self.cID,'sig_debug', 1337, vrep.simx_opmode_blocking)
@@ -196,6 +206,40 @@ class VrepEnv(gym.Env):
 	def obj_set_force(self, handle, f):
 		return self.RAPI_rc(vrep.simxSetJointForce( self.cID,handle,
 			f,
+			vrep.simx_opmode_blocking))
+	
+	def obj_set_position(self, handle, pos, relative_to=None):
+		return self.RAPI_rc(vrep.simxSetObjectPosition( self.cID,handle,
+			-1 if relative_to is None else relative_to,
+			pos,
+			vrep.simx_opmode_blocking))
+	
+	# signals
+	
+	def set_integer_signal(self, sig_name, sig_val):
+		return self.RAPI_rc(vrep.simxSetIntegerSignal( self.cID,
+			sig_name, sig_val,
+			vrep.simx_opmode_blocking))
+	def set_float_signal(self, sig_name, sig_val):
+		return self.RAPI_rc(vrep.SetFloatSignal( self.cID,
+			sig_name, sig_val,
+			vrep.simx_opmode_blocking))
+	def set_string_signal(self, sig_name, sig_val):
+		return self.RAPI_rc(vrep.SetStringSignal( self.cID,
+			sig_name, sig_val,
+			vrep.simx_opmode_blocking))
+	
+	def get_integer_signal(self, sig_name):
+		return self.RAPI_rc(vrep.simxGetIntegerSignal( self.cID,
+			sig_name,
+			vrep.simx_opmode_blocking))
+	def get_float_signal(self, sig_name):
+		return self.RAPI_rc(vrep.simxGetFloatSignal( self.cID,
+			sig_name,
+			vrep.simx_opmode_blocking))
+	def get_string_signal(self, sig_name):
+		return self.RAPI_rc(vrep.simxGetStringSignal( self.cID,
+			sig_name,
 			vrep.simx_opmode_blocking))
 	
 	# openai/gym
