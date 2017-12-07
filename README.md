@@ -28,7 +28,7 @@ pip3 install --upgrade git+https://github.com/ycps/vrep-env.git#egg=vrep_env
 
 ## Creating your own V-REP Gym environments
 
-In order to create your own V-REP Gym environments, simply extend the [`VrepEnv`](vrep-env/vrep_env.py) class and fill in the gaps.
+In order to create your own V-REP Gym environments, simply extend the [`VrepEnv`](vrep_env/vrep_env.py) class and fill in the gaps.
 You may use the [`ExampleVrepEnv`](examples/envs/example_vrep_env.py) as a template base or check the fully functional [`HopperVrepEnv`](examples/envs/hopper_vrep_env.py) (similar to the [MuJoCo](https://github.com/openai/gym/blob/master/gym/envs/mujoco/hopper.py) / [Roboschool](https://github.com/openai/roboschool/blob/master/roboschool/gym_mujoco_walkers.py) Hopper)
 
 ## Usage
