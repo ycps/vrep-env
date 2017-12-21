@@ -11,4 +11,6 @@ setup(name='vrep_env',
       url='https://github.com/ycps/vrep-env',
       packages=[package for package in find_packages() if package.startswith('vrep_env')],
       install_requires=install_requires,
+      package_data={'': ['remoteApi.so']},
+      include_package_data=True
 )
