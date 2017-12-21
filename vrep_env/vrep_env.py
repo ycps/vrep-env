@@ -1,5 +1,5 @@
 
-import vrep
+from vrep_env import vrep
 
 import gym
 import time
@@ -74,7 +74,17 @@ class VrepEnv(gym.Env):
 				raise RuntimeError('Unable to connect to V-REP.')
 		
 		# Setting up debug signal
-		vrep.simxSetIntegerSignal(self.cID,'sig_debug', 1337, vrep.simx_opmode_blocking)
+		self.set_integer_signal('sig_debug',1337)
+		
+		# Getting useful parameter values
+		self.is_headless = self.get_boolean_parameter(vrep.sim_boolparam_headless)
+		
+		# If not headless, remove GUI clutter
+		if not self.is_headless:
+			self.set_boolean_parameter(vrep.sim_boolparam_browser_visible  ,False)
+			self.set_boolean_parameter(vrep.sim_boolparam_hierarchy_visible,False)
+			self.set_boolean_parameter(vrep.sim_boolparam_console_visible  ,False)
+			#self.set_boolean_parameter(vrep.sim_boolparam_display_enabled  ,False)
 	
 	def disconnect(self):
 		if not self.connected:
@@ -99,10 +109,21 @@ class VrepEnv(gym.Env):
 	def start_simulation(self):
 		if self.sim_running:
 			raise RuntimeError('Simulation is already running.')
+		
+		# Optionally override physics engine ( 0=Bullet, 1=ODE, 2=Vortex, 3=Newton )
+		#self.set_integer_parameter(vrep.sim_intparam_dynamic_engine, 0) # 0=Bullet
+		
+		# Optionally override delta time
+		#self.set_float_parameter(vrep.sim_floatparam_simulation_time_step, 25)
+		
 		self.RAPI_rc(vrep.simxSynchronous(self.cID,True))
 		self.RAPI_rc(vrep.simxStartSimulation(self.cID, vrep.simx_opmode_blocking))
+		
+		# Enable Threaded Rendering for faster simulation
+		if not self.is_headless:
+			self.set_boolean_parameter(vrep.sim_boolparam_threaded_rendering_enabled,True)
+		
 		self.sim_running = True
-		self.enable_threaded_rendering(True)
 	
 	def stop_simulation(self):
 		if not self.sim_running:
@@ -122,12 +143,12 @@ class VrepEnv(gym.Env):
 	def step_simulation(self):
 		self.RAPI_rc(vrep.simxSynchronousTrigger(self.cID))
 	
-	# useful BooleanParameter's
+	# Below are all wrapped methods unrelated to connection/scene
 	
-	def enable_display(self, paramValue):
-		self.RAPI_rc(vrep.simxSetBooleanParameter(self.cID,vrep.sim_boolparam_display_enabled,paramValue,vrep.simx_opmode_blocking))
-	def enable_threaded_rendering(self, paramValue):
-		self.RAPI_rc(vrep.simxSetBooleanParameter(self.cID,vrep.sim_boolparam_threaded_rendering_enabled,paramValue,vrep.simx_opmode_blocking),tolerance=vrep.simx_return_remote_error_flag)
+	# misc methods
+	
+	def add_statusbar_message(self, message):
+		self.RAPI_rc(vrep.simxAddStatusbarMessage(self.cID, message, vrep.simx_opmode_blocking))
 	
 	# object methods
 	
@@ -241,6 +262,34 @@ class VrepEnv(gym.Env):
 		return self.RAPI_rc(vrep.simxGetStringSignal( self.cID,
 			sig_name,
 			vrep.simx_opmode_blocking))
+	
+	# parameters
+	
+	def set_boolean_parameter(self, param_id, param_val):
+		return self.RAPI_rc(vrep.simxSetBooleanParameter( self.cID,
+			param_id, param_val,
+			vrep.simx_opmode_blocking))
+	def set_integer_parameter(self, param_id, param_val):
+		return self.RAPI_rc(vrep.simxSetIntegerParameter( self.cID,
+			param_id, param_val,
+			vrep.simx_opmode_blocking))
+	def set_float_parameter(self, param_id, param_val):
+		return self.RAPI_rc(vrep.simxSetFloatingParameter( self.cID,
+			param_id, param_val,
+			vrep.simx_opmode_blocking))
+	
+	def get_boolean_parameter(self, param_id):
+		return self.RAPI_rc(vrep.simxGetBooleanParameter( self.cID,
+			param_id,
+			vrep.simx_opmode_blocking))[0]
+	def get_integer_parameter(self, param_id):
+		return self.RAPI_rc(vrep.simxGetIntegerParameter( self.cID,
+			param_id,
+			vrep.simx_opmode_blocking))[0]
+	def get_float_parameter(self, param_id):
+		return self.RAPI_rc(vrep.simxGetFloatingParameter( self.cID,
+			param_id,
+			vrep.simx_opmode_blocking))[0]
 	
 	# openai/gym
 	

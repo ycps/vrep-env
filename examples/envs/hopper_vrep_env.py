@@ -1,6 +1,5 @@
 
 from vrep_env import vrep_env
-import vrep # vrep.sim_handle_parent
 
 import os
 vrep_scenes_path = os.environ['VREP_SCENES_PATH']
@@ -42,16 +41,20 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 		self.oh_shape = list(map(self.get_object_handle, shape_names))
 		
 		# One action per joint
-		num_act = len(self.oh_joint)
+		dim_act = len(self.oh_joint)
 		# Multiple dimensions per shape
-		num_obs = (len(self.oh_shape)*3*2)+1
+		dim_obs = (len(self.oh_shape)*3*2)+1
 		
+		high_act =        np.ones([dim_act])
+		high_obs = np.inf*np.ones([dim_obs])
+		
+		self.action_space      = gym.spaces.Box(-high_act, high_act)
+		self.observation_space = gym.spaces.Box(-high_obs, high_obs)
+		
+		# Parameters
 		self.joints_max_velocity = 8.0
-		act = np.array( [self.joints_max_velocity] * num_act )
-		obs = np.array(          [np.inf]          * num_obs )
-		
-		self.action_space      = spaces.Box(-act,act)
-		self.observation_space = spaces.Box(-obs,obs)
+		#self.power = 0.75
+		self.power = 3.75
 		
 		print('HopperVrepEnv: initialized')
 	
@@ -72,14 +75,17 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 	
 	def _make_action(self, a):
 		for i_oh, i_a in zip(self.oh_joint, a):
-			self.obj_set_velocity(i_oh, i_a)
+			#self.obj_set_velocity(i_oh, i_a)
+			self.obj_set_velocity(i_oh, self.power*float(np.clip(i_a,-1,+1)))
 	
 	def _step(self, action):
-		# actions = np.clip(actions,-self.joints_max_velocity, self.joints_max_velocity)
-		assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
+		# Clip xor Assert
+		#actions = np.clip(actions,-self.joints_max_velocity, self.joints_max_velocity)
+		#assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
 		
 		# Actuate
 		self._make_action(action)
+		#self._make_action(action*self.joints_max_velocity)
 		# Step
 		self.step_simulation()
 		# Observe

@@ -4,7 +4,7 @@
 # Search for '#modify' and replace accordingly
 
 from vrep_env import vrep_env
-import vrep # vrep.sim_handle_parent
+from vrep_env import vrep # vrep.sim_handle_parent
 
 import os
 vrep_scenes_path = os.environ['VREP_SCENES_PATH']
