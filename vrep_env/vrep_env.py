@@ -8,11 +8,15 @@ import numpy as np
 class VrepEnv(gym.Env):
 	"""Superclass for V-REP environments.
 	"""
-	def __init__(self,server_addr,server_port,scene_path):
+	def __init__(self,server_addr,server_port,scene_path=None):
 		# Parameters
 		self.server_addr = server_addr
 		self.server_port = server_port
 		self.scene_path  = scene_path
+		
+		self.opM_get = vrep.simx_opmode_blocking
+		#self.opM_get = vrep.simx_opmode_oneshot
+		self.opM_set = vrep.simx_opmode_oneshot
 		
 		# Status
 		self.cID = -1
@@ -38,13 +42,10 @@ class VrepEnv(gym.Env):
 	# internal methods
 	
 	# Remote API call wrapper
-	def RAPI_rc(self, ret_tuple, tolerance=vrep.simx_return_ok):
+	#def RAPI_rc(self, ret_tuple, tolerance=vrep.simx_return_ok):
+	def RAPI_rc(self, ret_tuple, tolerance=vrep.simx_return_novalue_flag):
 		istuple = isinstance(ret_tuple, tuple)
-		if not istuple:
-			ret = ret_tuple
-		else:
-			ret = ret_tuple[0]
-		
+		ret = ret_tuple[0] if istuple else ret_tuple
 		if (ret != vrep.simx_return_ok) and (ret != tolerance):
 			raise RuntimeError('Remote API return code: ('+str(ret)+': '+self.str_simx_return[ret.bit_length()]+')')
 		
@@ -69,7 +70,7 @@ class VrepEnv(gym.Env):
 				break
 			elif attempts < max_attempts:
 				print('Unable to connect to V-REP at ',server_addr,':',server_port,'. Retrying...')
-				time.sleep(1)
+				time.sleep(4)
 			else:
 				raise RuntimeError('Unable to connect to V-REP.')
 		
@@ -83,8 +84,15 @@ class VrepEnv(gym.Env):
 		if not self.is_headless:
 			self.set_boolean_parameter(vrep.sim_boolparam_browser_visible  ,False)
 			self.set_boolean_parameter(vrep.sim_boolparam_hierarchy_visible,False)
-			self.set_boolean_parameter(vrep.sim_boolparam_console_visible  ,False)
 			#self.set_boolean_parameter(vrep.sim_boolparam_display_enabled  ,False)
+			# Remove GUI controls
+			#self.set_boolean_parameter(vrep.sim_boolparam_play_toolbarbutton_enabled  ,False)
+			#self.set_boolean_parameter(vrep.sim_boolparam_pause_toolbarbutton_enabled ,False)
+			#self.set_boolean_parameter(vrep.sim_boolparam_stop_toolbarbutton_enabled  ,False)
+			self.set_boolean_parameter(vrep.sim_boolparam_console_visible  ,False)
+		
+		# Optionally override real-time mode
+		self.set_boolean_parameter(vrep.sim_boolparam_realtime_simulation, False)
 	
 	def disconnect(self):
 		if not self.connected:
@@ -128,16 +136,18 @@ class VrepEnv(gym.Env):
 	def stop_simulation(self):
 		if not self.sim_running:
 			raise RuntimeError('Simulation is not running.')
+		
 		self.RAPI_rc(vrep.simxStopSimulation(self.cID, vrep.simx_opmode_blocking))
 		
 		# Checking if the server really stopped
-		while True:
-			self.RAPI_rc(vrep.simxGetIntegerSignal(self.cID,'sig_debug',vrep.simx_opmode_blocking))
-			e = vrep.simxGetInMessageInfo(self.cID,vrep.simx_headeroffset_server_state)
-			still_running = e[1] & 1
-			if not still_running:
-				break
-		
+		try:
+			while True:
+				self.RAPI_rc(vrep.simxGetIntegerSignal(self.cID,'sig_debug',vrep.simx_opmode_blocking))
+				e = vrep.simxGetInMessageInfo(self.cID,vrep.simx_headeroffset_server_state)
+				still_running = e[1] & 1
+				if not still_running:
+					break
+		except: pass
 		self.sim_running = False
 	
 	def step_simulation(self):
@@ -161,50 +171,49 @@ class VrepEnv(gym.Env):
 	def obj_get_position(self, handle, relative_to=None):
 		position, = self.RAPI_rc(vrep.simxGetObjectPosition( self.cID,handle,
 			-1 if relative_to is None else relative_to,
-			vrep.simx_opmode_blocking))
+			self.opM_get))
 		return position
-	
 	def obj_get_orientation(self, handle, relative_to=None):
 		eulerAngles, = self.RAPI_rc(vrep.simxGetObjectOrientation( self.cID,handle,
 			-1 if relative_to is None else relative_to,
-			vrep.simx_opmode_blocking))
+			self.opM_get))
 		return eulerAngles
+	def obj_get_orientation_continuous(self, handle, relative_to=None):
+		ea = self.obj_get_orientation(handle,relative_to)
+		return [
+			np.sin(ea[0]),np.cos(ea[0]),
+			np.sin(ea[1]),np.cos(ea[1]),
+			np.sin(ea[2]),np.cos(ea[2])]
 	
 	# (linearVel, angularVel)
 	def obj_get_velocity(self, handle):
 		return self.RAPI_rc(vrep.simxGetObjectVelocity( self.cID,handle,
-			vrep.simx_opmode_blocking))
-	
+			self.opM_get))
 	def obj_get_joint_angle(self, handle):
-		angle = self.RAPI_rc(vrep.simxGetJointPosition( self.cID,handle,
-				vrep.simx_opmode_blocking
-			)
-		)
-		return -np.rad2deg(angle[0])
-	
+		angle, = self.RAPI_rc(vrep.simxGetJointPosition( self.cID,handle,
+				self.opM_get))
+		#return -np.rad2deg(angle[0])
+		return angle
+	def obj_get_joint_angle_continuous(self, handle):
+		rad = self.obj_get_joint_angle(handle)
+		return [np.sin(rad),np.cos(rad)]
 	def obj_get_joint_force(self, handle):
 		force = self.RAPI_rc(vrep.simxGetJointForce( self.cID,handle,
-				vrep.simx_opmode_blocking
-			)
-		)
+				self.opM_get))
 		return force
-	
 	def obj_read_force_sensor(self, handle):
 		state, forceVector, torqueVector = self.RAPI_rc(vrep.simxReadForceSensor( self.cID,handle,
-			vrep.simx_opmode_blocking))
-		
+			self.opM_get))
 		if   state & 1 != 1: # bit 0 not set
 			return None # sensor data not (yet) available
 		elif state & 2 == 1: # bit 1 set
 			return 0 # force sensor is broken
 		else:
 			return forceVector, torqueVector
-	
 	def obj_get_vision_image(self, handle):
 		resolution, image = self.RAPI_rc(vrep.simxGetVisionSensorImage( self.cID,handle,
 			0, # assume RGB
-			vrep.simx_opmode_blocking,
-		))
+			self.opM_get,))
 		dim, im = resolution, image
 		nim = np.array(im, dtype='uint8')
 		nim = np.reshape(nim, (dim[1], dim[0], 3))
@@ -217,51 +226,62 @@ class VrepEnv(gym.Env):
 	def obj_set_position_target(self, handle, angle):
 		return self.RAPI_rc(vrep.simxSetJointTargetPosition( self.cID,handle,
 			-np.deg2rad(angle),
-			vrep.simx_opmode_blocking))
-	
+			self.opM_set))
 	def obj_set_velocity(self, handle, v):
 		return self.RAPI_rc(vrep.simxSetJointTargetVelocity( self.cID,handle,
 			v,
-			vrep.simx_opmode_blocking))
-	
+			self.opM_set))
 	def obj_set_force(self, handle, f):
 		return self.RAPI_rc(vrep.simxSetJointForce( self.cID,handle,
 			f,
-			vrep.simx_opmode_blocking))
-	
+			self.opM_set))
 	def obj_set_position(self, handle, pos, relative_to=None):
 		return self.RAPI_rc(vrep.simxSetObjectPosition( self.cID,handle,
 			-1 if relative_to is None else relative_to,
 			pos,
-			vrep.simx_opmode_blocking))
+			self.opM_set))
+	def obj_set_orientation(self, handle, eulerAngles, relative_to=None):
+		return self.RAPI_rc(vrep.simxSetObjectOrientation( self.cID,handle,
+			-1 if relative_to is None else relative_to,
+			eulerAngles,
+			self.opM_set))
+	# collisions
+	
+	def get_collision_handle(self, name):
+		handle, = self.RAPI_rc(vrep.simxGetCollisionHandle(self.cID, name, vrep.simx_opmode_blocking))
+		return handle
+	def read_collision(self, handle):
+		collisionState, = self.RAPI_rc(vrep.simxReadCollision( self.cID,handle,
+				self.opM_get))
+		return collisionState
 	
 	# signals
 	
 	def set_integer_signal(self, sig_name, sig_val):
 		return self.RAPI_rc(vrep.simxSetIntegerSignal( self.cID,
 			sig_name, sig_val,
-			vrep.simx_opmode_blocking))
+			self.opM_set))
 	def set_float_signal(self, sig_name, sig_val):
 		return self.RAPI_rc(vrep.SetFloatSignal( self.cID,
 			sig_name, sig_val,
-			vrep.simx_opmode_blocking))
+			self.opM_set))
 	def set_string_signal(self, sig_name, sig_val):
 		return self.RAPI_rc(vrep.SetStringSignal( self.cID,
 			sig_name, sig_val,
-			vrep.simx_opmode_blocking))
+			self.opM_set))
 	
 	def get_integer_signal(self, sig_name):
 		return self.RAPI_rc(vrep.simxGetIntegerSignal( self.cID,
 			sig_name,
-			vrep.simx_opmode_blocking))
+			self.opM_get))
 	def get_float_signal(self, sig_name):
 		return self.RAPI_rc(vrep.simxGetFloatSignal( self.cID,
 			sig_name,
-			vrep.simx_opmode_blocking))
+			self.opM_get))
 	def get_string_signal(self, sig_name):
 		return self.RAPI_rc(vrep.simxGetStringSignal( self.cID,
 			sig_name,
-			vrep.simx_opmode_blocking))
+			self.opM_get))
 	
 	# parameters
 	
@@ -277,6 +297,10 @@ class VrepEnv(gym.Env):
 		return self.RAPI_rc(vrep.simxSetFloatingParameter( self.cID,
 			param_id, param_val,
 			vrep.simx_opmode_blocking))
+	def set_array_parameter(self, param_id, param_val):
+		return self.RAPI_rc(vrep.simxSetArrayParameter( self.cID,
+			param_id, param_val,
+			vrep.simx_opmode_blocking))
 	
 	def get_boolean_parameter(self, param_id):
 		return self.RAPI_rc(vrep.simxGetBooleanParameter( self.cID,
@@ -290,6 +314,18 @@ class VrepEnv(gym.Env):
 		return self.RAPI_rc(vrep.simxGetFloatingParameter( self.cID,
 			param_id,
 			vrep.simx_opmode_blocking))[0]
+	def get_array_parameter(self, param_id):
+		return self.RAPI_rc(vrep.simxGetArrayParameter( self.cID,
+			param_id,
+			vrep.simx_opmode_blocking))[0]
+	
+	# scripts
+	# child scripts
+	def call_childscript_function(self,obj_name,func_name,in_tuple):
+		return self.RAPI_rc(vrep.simxCallScriptFunction(self.cID,
+			obj_name,vrep.sim_scripttype_childscript,func_name,
+			in_tuple[0],in_tuple[1],in_tuple[2],in_tuple[3],
+			vrep.simx_opmode_blocking))
 	
 	# openai/gym
 	
@@ -310,7 +346,8 @@ class VrepEnv(gym.Env):
 	#def _render(self, mode='human', close=False): return
 	#def _seed(self, seed=None): return []
 	
-	def _close(self):
+	#def _close(self):
+	def close(self):
 		if self.sim_running:
 			self.stop_simulation()
 		# Closing the scene is unnecessary
