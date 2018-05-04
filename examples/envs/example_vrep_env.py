@@ -109,7 +109,7 @@ class ExampleVrepEnv(vrep_env.VrepEnv):
 		for i_oh, i_a in zip(self.oh_joint, a):
 			self.obj_set_velocity(i_oh, i_a)
 	
-	def _step(self, action):
+	def step(self, action):
 		"""Gym environment 'step'
 		"""
 		# #modify Either clip the actions outside the space or assert the space contains them
@@ -143,7 +143,7 @@ class ExampleVrepEnv(vrep_env.VrepEnv):
 		
 		return self.observation, reward, done, {}
 	
-	def _reset(self):
+	def reset(self):
 		"""Gym environment 'reset'
 		"""
 		if self.sim_running:
@@ -152,12 +152,12 @@ class ExampleVrepEnv(vrep_env.VrepEnv):
 		self._make_observation()
 		return self.observation
 	
-	def _render(self, mode='human', close=False):
+	def render(self, mode='human', close=False):
 		"""Gym environment 'render'
 		"""
 		pass
 	
-	def _seed(self, seed=None):
+	def seed(self, seed=None):
 		"""Gym environment 'seed'
 		"""
 		return []
