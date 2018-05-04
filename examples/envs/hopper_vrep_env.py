@@ -6,16 +6,15 @@ vrep_scenes_path = os.environ['VREP_SCENES_PATH']
 
 import gym
 from gym import spaces
+from gym.utils import seeding
 import numpy as np
 
 class HopperVrepEnv(vrep_env.VrepEnv):
-	metadata = {
-		'render.modes': [],
-	}
+	metadata = {'render.modes': [],}
 	def __init__(
 		self,
 		server_addr='127.0.0.1',
-		server_port=19997,
+		server_port=-19997,
 		scene_path=vrep_scenes_path+'/hopper.ttt',
 	):
 		vrep_env.VrepEnv.__init__(
@@ -24,6 +23,9 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 			server_port,
 			scene_path,
 		)
+		
+		# Settings
+		self.random_start = False
 		
 		# All joints
 		joint_names = ['thigh_joint','leg_joint','foot_joint']
@@ -34,7 +36,6 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 		
 		# Meta
 		self.camera = self.get_object_handle('camera')
-		
 		# Actuators
 		self.oh_joint = list(map(self.get_object_handle, joint_names))
 		# Shapes
@@ -56,9 +57,13 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 		#self.power = 0.75
 		self.power = 3.75
 		
+		self.seed()
+		
 		print('HopperVrepEnv: initialized')
 	
 	def _make_observation(self):
+		"""Get observation from v-rep and stores in self.observation
+		"""
 		lst_o = []
 		
 		# Include z position in observation
@@ -74,14 +79,16 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 		self.observation = np.array(lst_o).astype('float32')
 	
 	def _make_action(self, a):
+		"""Send action to v-rep
+		"""
 		for i_oh, i_a in zip(self.oh_joint, a):
 			#self.obj_set_velocity(i_oh, i_a)
 			self.obj_set_velocity(i_oh, self.power*float(np.clip(i_a,-1,+1)))
 	
-	def _step(self, action):
+	def step(self, action):
 		# Clip xor Assert
 		#actions = np.clip(actions,-self.joints_max_velocity, self.joints_max_velocity)
-		#assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
+		assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
 		
 		# Actuate
 		self._make_action(action)
@@ -101,26 +108,37 @@ class HopperVrepEnv(vrep_env.VrepEnv):
 		# Early stop
 		stand_threshold = 0.10
 		done = (torso_pos_z < stand_threshold)
+		#done = False
 		
 		return self.observation, reward, done, {}
 	
-	def _reset(self):
+	def reset(self):
 		if self.sim_running:
 			self.stop_simulation()
 		self.start_simulation()
+		
+		# First action is random: emulate random initialization
+		if self.random_start:
+			factor = self.np_random.uniform(low=0, high=0.02, size=(1,))[0]
+			action = self.action_space.sample()*factor
+			self._make_action(action)
+			self.step_simulation()
+		
 		self._make_observation()
 		return self.observation
 	
-	def _render(self, mode='human', close=False):
+	def render(self, mode='human', close=False):
 		pass
 	
-	def _seed(self, seed=None):
-		return []
+	def seed(self, seed=None):
+		self.np_random, seed = seeding.np_random(seed)
+		return [seed]
 	
 def main(args):
 	env = HopperVrepEnv()
-	for i_episode in range(16):
+	for i_episode in range(4):
 		observation = env.reset()
+		print(observation)
 		total_reward = 0
 		for t in range(256):
 			action = env.action_space.sample()
