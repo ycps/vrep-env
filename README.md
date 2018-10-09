@@ -9,6 +9,9 @@ It is analogous to [MuJoCo-env](https://github.com/openai/gym/blob/master/gym/en
     <td><img src="/assets/screenshot.png?raw=true" width="200"></td>
     <td><img src="/assets/vrep-cartpole.png?raw=true" width="200"></td>
   </tr>
+  <tr>
+    <td colspan="2"><img src="/assets/vrep-ant.gif?raw=true" width="400"></td>
+  </tr>
 </table>
 
 ## Dependencies
@@ -62,6 +65,7 @@ register(id='VrepHopper-v0', entry_point='hopper_vrep_env:HopperVrepEnv', max_ep
 |VrepCartPole-v0|Box(4)|Discrete(2)|200|[CartPole-v1](https://gym.openai.com/envs/CartPole-v1)|
 |VrepCartPoleContinuous-v0|Box(4)|Box(1)|200|[CartPole-v1](https://gym.openai.com/envs/CartPole-v1)|
 |VrepHopper-v0|Box(25)|Box(3)|1000|[Hopper-v*](https://github.com/openai/gym/blob/master/gym/envs/mujoco/hopper.py)|
+|VrepAnt-v0|Box(28)|Box(8)|1000|[Ant-v*](https://github.com/openai/gym/blob/master/gym/envs/mujoco/ant.py)|
 
 ### VrepCartPole-v0
   Based on Gym CartPole-v1 (cart-pole problem described by Barto, Sutton, and Anderson).
@@ -69,8 +73,11 @@ register(id='VrepHopper-v0', entry_point='hopper_vrep_env:HopperVrepEnv', max_ep
 ### VrepCartPoleContinuous-v0
   Similar to VrepCartPole-v0, but with continuous actions values.
 ### VrepHopper-v0
-  Loosely based on MuJoCo/Roboschool/PyBullet Hopper, but the dynamics act numerically different.
+  Loosely based on [MuJoCo](https://github.com/openai/gym/tree/master/gym/envs/mujoco)/[Roboschool](https://github.com/openai/roboschool)/[PyBullet](https://github.com/benelot/pybullet-gym) Hopper, but the dynamics act numerically different.
   (Warning: it is not known if this env is learnable nor if the model is capable of hopping.)
+### VrepAnt-v0 (WIP)
+  Based on [MuJoCo](https://github.com/openai/gym/tree/master/gym/envs/mujoco)/[Roboschool](https://github.com/openai/roboschool)/[PyBullet](https://github.com/benelot/pybullet-gym) Ant, the dynamics act numerically similar (but not identical).
+  An agent trained in the original Ant envs may be able to succeed in VrepAnt-v0 with little or no additional training.
 
 ## Similar projects
 
@@ -82,3 +89,4 @@ Some of these projects also contain interesting scenes for learning different ta
 - https://github.com/bhyang/gym-vrep
 - https://github.com/kbys-t/gym_vrep
 - https://github.com/sayantanauddy/acrobotVREP
+- https://github.com/Souphis/gym-vrep
